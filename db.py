@@ -41,8 +41,9 @@ class DatabaseDriver(object):
                 CREATE TABLE hall (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
-                    numWash INTEGER NOT NULL,
-                    numDry INTEGER NOT NULL
+                    lv_id TEXT NOT NULL,
+                    num_avail_wash INTEGER NOT NULL,
+                    num_avail_dry INTEGER NOT NULL,
                 );
                 """
             )
@@ -50,103 +51,54 @@ class DatabaseDriver(object):
         except Exception as e:
             print(e)
         
-    def get_all_users(self):
-        cursor = self.conn.execute("SELECT * FROM user;")
-        users = parse_cursor(cursor, ["id", "name", "netid"])
-        return users
+    def get_all_halls(self):
+        cursor = self.conn.execute("SELECT * FROM hall;")
+        halls = parse_cursor(cursor, ["name", "lv_id", "num_avail_wash", "num_avail_dry"])
+        return halls
 
-    def insert_user_table(self, name, netid, balance):
+    def get_hall_by_name(self, hall_name):
+    
+    
+    cursor = self.conn.execute("SELECT * FROM hall WHERE name = ?;", (hall_name,))
+    hall = parse_cursor(cursor, ["name"])
+
+    cursor2 = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall_name,))
+    machineData = parse_cursor(cursor2, ["machine_name", "isWasher", "isAvailable", "isOOS", "timeLeft"])
+
+    hall["machines"]=machineData
+
+    return hall
+
+    def insert_hall_table(self, name, lv_id):
         cur = self.conn.cursor()
         cur.execute(
             """
-            INSERT INTO user (name, netid, balance) VALUES (?, ?, ?);
+            INSERT INTO hall (name, lv_id, num_avail_wash, num_avail_dry) VALUES (?, ?, ?, ?);
             """,
-            (name, netid, balance)
+            (name, lv_id, num_avail_wash, num_avail_dry)
         )
         self.conn.commit()
         return cur.lastrowid
 
-    def get_user_by_id(self, id):
-        cursor = self.conn.execute("SELECT * FROM user WHERE ID = ?;", (id,))
-
-        userData = None
-
-        for row in cursor:
-            userData= parse_row(row, ["id", "name", "netid", "balance"])
-
-            cursor2 = self.conn.execute("SELECT * FROM txn WHERE user_id = ?;", (id,))
-
-            txnData = []
-            for arow in cursor2:
-                txnData.append(
-                    {
-                        "id": arow[0],
-                        "timestamp": arow[1],
-                        "user_id": arow[2],
-                        "hall_anme": arow[3],
-                        "machine_name": arow[4],
-                        "amount": arow[5],
-                    }
-                )
-            userData["transactions"]=txnData
-        if userData is not None:
-            return userData
-        return None
-
-    def delete_user_by_id(self, id):
+    def update_hall_by_name(self, name, num_avail_wash, num_avail_dry):
         self.conn.execute(
             """
-            DELETE FROM user WHERE id = ?;
-            """,
-            (id,)
-        )
-
-    def change_user_balance_by_id(self, user_id, newUserBalance):
-        self.conn.execute(
-            """
-            UPDATE user SET balance=? WHERE id=?;
-            """,
-            (newUserBalance, user_id)
+            UPDATE hall
+            SET num_avail_wash = ?
+            SET num_avail_dry = ?
+            WHERE name = ?;
+        """,
+            (num_avail_wash, num_avail_dry, name),
         )
         self.conn.commit()
 
-#-----------------------Transaction Model---------------------------------
-
-    def create_txn_table(self):
-            try:
-                self.conn.execute(
-                    """
-                    CREATE TABLE txn (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp TEXT NOT NULL,
-                        user_id INTEGER SECONDARY KEY NOT NULL,
-                        hall_name TEXT NOT NULL,
-                        machine_name TEXT NOT NULL, 
-                        amount INTEGER NOT NULL
-                    );
-                """
-                )
-            except Exception as e:
-                print(e)
-
-    def insert_txn_table(self, user_id, hall_name, machine_name, amount):
-        cur = self.conn.cursor()
-        cur.execute(
+    def delete_hall_by_name(self, name):
+        self.conn.execute(
             """
-            INSERT INTO txn (timestamp, user_id, hall_name, machine_name, amount) VALUES (?, ?, ?, ?, ?);
+            DELETE FROM hall WHERE name = ?;
             """,
-            (datetime.datetime.now(), user_id, hall_name, machine_name, amount)
+            (name,)
         )
-        self.conn.commit()
-        return cur.lastrowid
-
-    def get_txn_by_id(self, id):
-        cursor = self.conn.execute("SELECT * FROM txn WHERE ID = ?;", (id,))
- 
-        for row in cursor:
-            return parse_row(row, ["id", "timestamp", "user_id", "hall_name", "machine_name", "amount"])
-        return None
-
 
 #------------------------------------Machine Model---------------------------------------
     def create_machine_table(self):
@@ -155,57 +107,55 @@ class DatabaseDriver(object):
                     """
                     CREATE TABLE machine (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        hall_name TEXT NOT NULL,
+                        hall_name TEXT SECONDARY KEY NOT NULL,
                         machine_name TEXT NOT NULL,
+                        machine_lv_id INTEGER NOT NULL,
                         isWasher BOOLEAN NOT NULL,
-                        isAvailable BOOLEAN NOT NULL
+                        isAvailable BOOLEAN NOT NULL,
+                        isOOS BOOLEAN NOT NULL, 
+                        timeLeft INTEGER NOT NULL,
                     );
                 """
                 )
             except Exception as e:
                 print(e)
 
-    def insert_machine_table(self, hall_name, machine_name, isWasher, isAvailable):
+    def insert_machine_table(self, hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft):
         cur = self.conn.cursor()
         cur.execute(
             """
-            INSERT INTO machine (hall_name, machine_name, isWasher, isAvailable) VALUES (?, ?, ?, ?);
+            INSERT INTO machine (hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft) VALUES (?, ?, ?, ?, ?, ?, ?);
             """,
-            (hall_name, machine_name, isWasher, isAvailable)
+            (hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft)
         )
         self.conn.commit()
         return cur.lastrowid
 
     def get_all_machines_in_hall(self, hall_name):
         cursor = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall_name,))
-        machines = parse_cursor(cursor, ["id", "hall_name", "machine_name", "isWasher", "isAvailable"])
+        machines = parse_cursor(cursor, ["machine_name", "isWasher", "isAvailable", "isOOS", "timeLeft"])
         return machines
-
-    def get_machine_by_id(self, id):
-        cursor = self.conn.execute("SELECT * FROM machine WHERE ID = ?;", (id,))
- 
-        for row in cursor:
-            return parse_row(row, ["id", "hall_name", "machine_name", "isWasher", "isAvailable"])
-        return None
-
-    # def get_machine_by_name(self, machine_name):
-    #     cursor = self.conn.execute("SELECT * FROM machine WHERE machine_name = ?;", (machine_name,))
- 
-    #     for row in cursor:
-    #         return parse_row(row, ["id", "hall_name", "machine_name", "isWasher", "isAvailable"])
-    #     return None
     
-    def update_machine_by_id(self, machine_id, isAvailable):
+    def update_machine_by_machine_lv_id(self, machine_lv_id, isAvailable, isOOS, timeLeft):
         self.conn.execute(
             """
             UPDATE machine
             SET isAvailable = ?
-            WHERE id = ?;
+            SET isOOS = ?
+            SET timeLeft = ?
+            WHERE machine_lv_id = ?;
         """,
-            (isAvailable, machine_id),
+            (isAvailable, isOOS, timeLeft, machine_lv_id),
         )
         self.conn.commit()
 
+    def delete_machine_by_machine_lv_id(self, machine_lv_id):
+        self.conn.execute(
+            """
+            DELETE FROM machine WHERE machine_lv_id = ?;
+            """,
+            (machine_lv_id,)
+        )
 
 #----------------------------------------------------------------------------
     def delete_user_table(self):
