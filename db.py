@@ -57,17 +57,16 @@ class DatabaseDriver(object):
         return halls
 
     def get_hall_by_name(self, hall_name):
-    
-    
-    cursor = self.conn.execute("SELECT * FROM hall WHERE name = ?;", (hall_name,))
-    hall = parse_cursor(cursor, ["name"])
+        cursor = self.conn.execute("SELECT * FROM hall WHERE name = ?;", (hall_name,))
+        hall = parse_cursor(cursor, ["name"])
 
-    cursor2 = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall_name,))
-    machineData = parse_cursor(cursor2, ["machine_name", "isWasher", "isAvailable", "isOOS", "timeLeft"])
+        #might not work -- txn data thing
+        cursor2 = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall_name,))
+        machineData = parse_cursor(cursor2, ["machine_name", "isWasher", "isAvailable", "isOOS", "timeLeft"])
 
-    hall["machines"]=machineData
+        hall["machines"]=machineData
 
-    return hall
+        return hall
 
     def insert_hall_table(self, name, lv_id):
         cur = self.conn.cursor()
