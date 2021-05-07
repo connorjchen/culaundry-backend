@@ -9,6 +9,30 @@ DB = db.DatabaseDriver()
 
 app = Flask(__name__)
 
+input = {"halls": 
+        [{"name": "Akwe:kon", "lv_id": "1638342"}, 
+        {"name": "Balch Hall North", "lv_id": "1638314"}, 
+        {"name": "Balch Hall South", "lv_id": "1638330"}, 
+        {"name": "Bauer Hall", "lv_id": "1638358"},
+        {"name": "Latino Living Center", "lv_id": "163833"},
+        {"name": "Clara Dickson Hall", "lv_id": "1638321"},
+        {"name": "Mary Donlon Hall", "lv_id": "1638322"},
+        {"name": "George Jameson Hall", "lv_id": "1638324"},
+        {"name": "High Rise 5", "lv_id": "1638325"},
+        {"name": "Ecology House", "lv_id": "1638317"},
+        {"name": "Kay Hall", "lv_id": "1638359"},
+        {"name": "Ujamaa", "lv_id": "163837"},
+        {"name": "Low Rise 6", "lv_id": "1638326"},
+        {"name": "Low Rise 7", "lv_id": "1638312"},
+        {"name": "HILC", "lv_id": "1638327"},
+        {"name": "Just About Music", "lv_id": "1638310"},
+        {"name": "Mews Hall A", "lv_id": "1638356"},
+        {"name": "Mews Hall B", "lv_id": "1638357"},
+        {"name": "Risley Hall", "lv_id": "1638328"},
+        {"name": "Townhouse CC", "lv_id": "1638320"},
+        {"name": "Townhouse E", "lv_id": "1638331"},
+        {"name": "Townhouse G", "lv_id": "1638332"}]}   
+
 def success_response(data, code=200):
     return json.dumps({"success": True, "data": data}), code
 
@@ -31,7 +55,7 @@ def get_all_machines_in_hall(lv_id):
 
 @app.route("/api/create/halls/", methods=["POST"])
 def create_halls():
-    body = json.loads(request.data)
+    body = input
     list = body["halls"]
 
     for x in list:
@@ -49,7 +73,7 @@ def create_halls():
 
 @app.route("/api/update/halls/", methods=["POST"])
 def update_halls():
-    body = json.loads(request.data)
+    body = input
     list1 = body["halls"]
 
     for y in list1:
@@ -73,7 +97,7 @@ def update_halls():
 
 @app.route("/api/update/machines/", methods=["POST"])
 def update_machine():
-    body = json.loads(request.data)
+    body = input
     list1 = body["halls"]
 
     for y in list1:
@@ -145,7 +169,7 @@ def update_machine():
 
 @app.route("/api/create/machines/", methods=["POST"])
 def create_machines():
-    body = json.loads(request.data)
+    body = input
     list1 = body["halls"]
 
     for y in list1:
