@@ -1,6 +1,7 @@
 import json
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import datetime
+import requests
 import db
 import os
 
@@ -14,166 +15,205 @@ def success_response(data, code=200):
 def failure_response(error, code=404):
     return json.dumps({"success": False, "error": error}), code
 
-@app.route("/")
-def hello_world():
-    return "Hello world!"
-
 # your routes here
 @app.route("/api/halls/")
 def get_halls():
-    return success_response(DB.get_all_halls)
+    return success_response(DB.get_all_halls())
 
-@app.route("/api/<string:hall_name>/")
-def get_all_machines_in_hall(hall_name):
-    return success_response(DB.get_hall_by_name)
+@app.route("/api/<int:lv_id>/")
+def get_all_machines_in_hall(lv_id):
+    hall = DB.get_hall_by_lv_id(lv_id)
+    hall_name = hall[0]["name"]
+    if hall is None:
+        return failure_response("Hall not found!")
+    return success_response(DB.get_hall_by_name(hall_name))
 
-#hard code this in - write own thing in postman
+
 @app.route("/api/halls/", methods=["POST"])
-def create_hall():
+def create_all_hall():
     body = json.loads(request.data)
-    name = body.get("name")
-    lv_id = body.get("lv_id")
-    num_avail_wash = body.get("num_avail_wash", 0)
-    num_avail_dry = body.get("num_avail_dry", 0)
+    list = body["halls"]
 
-    if name and lv_id and num_avail_wash and num_avail_dry is not None:
-        hall_id = DB.insert_hall_table(name, lv_id, num_avail_wash, num_avail_dry)
-        return success_response(DB.get_hall_by_name(name))
-    return failure_response("Not enough information! Need name and lv_id supplied!", 400)
+    for x in list:
+        name = x["name"]
+        lv_id = x["lv_id"]
+        num_avail_wash = body.get("num_avail_wash", 0)
+        num_avail_dry = body.get("num_avail_dry", 0)
 
-@app.route("/api/halls/numAvail", methods=["POST"])
+        if name and lv_id is not None:
+            DB.insert_hall_table(name, lv_id, num_avail_wash, num_avail_dry)
+        else:
+            return failure_response("Not enough information! Need name and lv_id to be supplied!", 400)
+        
+    return success_response("Halls created!")
+
+@app.route("/api/update/halls/", methods=["POST"])
 def update_halls():
-    hall_list = DB.get_all_halls()
+    body = json.loads(request.data)
+    list1 = body["halls"]
 
-    if hall_list is None:
-        return failure_response("No halls found")
+    for y in list1:
+        lv_id = y["lv_id"]
+        hall = DB.get_hall_by_lv_id(lv_id)
+        hall_name = hall[0]["name"]
+        if hall is None:
+            return failure_response("Hall not found!")
 
-    for x in hall_list:
-        hall_name = x["name"]
-        machine_list = get_all_machines_in_hall(hall_name)
+        machine_list = DB.get_hall_by_name(hall_name)["machines"]
         num_avail_wash = 0
         num_avail_dry = 0
-        for y in machine_list:
-            if (y["isWasher"] == True and y["isAvailable"] == True):
+        for x in machine_list:
+            if (x["isWasher"] == True and x["isAvailable"] == True):
                 num_avail_wash += 1
-            elif (y["isWasher"] == False and y["isAvailable"] == True):
+            elif (x["isWasher"] == False and x["isAvailable"] == True):
                 num_avail_dry += 1
         DB.update_hall_by_name(hall_name, num_avail_wash, num_avail_dry)
 
     return success_response("Halls availability updated")
 
-#have it update all machines 
-@app.route("/api/machines/<string:hall_name>/", methods=["POST"])
-def update_machines(hall_name):
-    uri = "https://www.laundryview.com/api/currentRoomData?school_desc_key=52&location=" + DB.get_hall_by_name(hall_name)["lv_id"]
-    try:
-        uResponse = requests.get(uri)
-    except requests.ConnectionError:
-        return failure_response("Connection Error")
-    jResponse = uResponse.text
-    body = json.loads(jResponse)
-    list = body["objects"]
+@app.route("/api/update/machines/", methods=["POST"])
+def update_machine():
+    body = json.loads(request.data)
+    list1 = body["halls"]
 
-    for x in list:
-        if (x["appliance_desc_key"] is not None):
-            isOOS = False
-            machine_lv_id = x["appliance_desc_key"]
+    for y in list1:
+        lv_id = y["lv_id"]
+        hall = DB.get_hall_by_lv_id(lv_id)
+        hall_name = hall[0]["name"]
+        if hall is None:
+            return failure_response("Hall not found!")
+        uri = "https://www.laundryview.com/api/currentRoomData?school_desc_key=52&location=" + str(lv_id)
+        try:
+            uResponse = requests.get(uri)
+        except:
+            return failure_response("Error with the URI")
+        jResponse = uResponse.text
+        body = json.loads(jResponse)
+        list = body["objects"]
 
-            if (x["time_left_lite"] == "Available"):  
-                isAvailable = True
-            elif (x["time_left_lite"] == "Ext. Cycle"):
-                isAvailable = False
-            elif (x["time_left_lite"] == "Out of service"):
-                isAvailable = False
-                isOOS = True
-            else:
-                isAvailable = False
+        for x in list:
+            if ("appliance_desc_key" in x):
+                isOOS = False
+                isOffline = False
+                machine_name = x["appliance_desc"]
+                machine_lv_id = x["appliance_desc_key"]
+
+                if (x["appliance_type"] == "W"):  
+                    isWasher = True
+                elif (x["appliance_type"] == "D"):
+                    isWasher = False
+
+                if (x["time_left_lite"] == "Available"):  
+                    isAvailable = True
+                elif (x["time_left_lite"] == "Out of service"):
+                    isAvailable = False
+                    isOOS = True
+                elif (x["time_left_lite"] == "Out of service"):
+                    isAvailable = False
+                    isOffline = True
+                else:
+                    isAvailable = False
+                
+                timeLeft = x["time_remaining"]
+                DB.update_machine_by_machine_lv_id(machine_lv_id, isAvailable, isOOS, isOffline, timeLeft)  
+
+            if ("appliance_desc_key2" in x):
+                isOOS = False
+                isOffline = False
+                machine_name = x["appliance_desc2"]
+                machine_lv_id = x["appliance_desc_key2"]
+
+                if (x["appliance_type"] == "W"):  
+                    isWasher = True
+                elif (x["appliance_type"] == "D"):
+                    isWasher = False
+
+                if (x["time_left_lite2"] == "Available"):  
+                    isAvailable = True
+                elif (x["time_left_lite2"] == "Out of service"):
+                    isAvailable = False
+                    isOOS = True
+                elif (x["time_left_lite2"] == "Out of service"):
+                    isAvailable = False
+                    isOffline = True
+                else:
+                    isAvailable = False
+                
+                timeLeft = x["time_remaining2"]
+                DB.update_machine_by_machine_lv_id(machine_lv_id, isAvailable, isOOS, isOffline, timeLeft)    
+    return success_response("Machines updated for all halls!")
+
+@app.route("/api/create/machines/", methods=["POST"])
+def create_machine():
+    body = json.loads(request.data)
+    list1 = body["halls"]
+
+    for y in list1:
+        lv_id = y["lv_id"]
+        hall = DB.get_hall_by_lv_id(lv_id)
+        hall_name = hall[0]["name"]
+        if hall is None:
+            return failure_response("Hall not found!")
+        uri = "https://www.laundryview.com/api/currentRoomData?school_desc_key=52&location=" + str(lv_id)
+        try:
+            uResponse = requests.get(uri)
+        except:
+            return failure_response("Error with the URI")
+        jResponse = uResponse.text
+        body = json.loads(jResponse)
+        list = body["objects"]
+
+        for x in list:
+            if ("appliance_desc_key" in x):
+                isOOS = False
+                isOffline = False
+                machine_name = x["appliance_desc"]
+                machine_lv_id = x["appliance_desc_key"]
+
+                if (x["appliance_type"] == "W"):  
+                    isWasher = True
+                elif (x["appliance_type"] == "D"):
+                    isWasher = False
+
+                if (x["time_left_lite"] == "Available"):  
+                    isAvailable = True
+                elif (x["time_left_lite"] == "Out of service"):
+                    isAvailable = False
+                    isOOS = True
+                elif (x["time_left_lite"] == "Out of service"):
+                    isAvailable = False
+                    isOffline = True
+                else:
+                    isAvailable = False
+                
+                timeLeft = x["time_remaining"]
+                DB.insert_machine_table(hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, isOffline, timeLeft)
             
-            timeLeft = x["time_remaining"]
+            if ("appliance_desc_key2" in x):
+                isOOS = False
+                isOffline = False
+                machine_name = x["appliance_desc2"]
+                machine_lv_id = x["appliance_desc_key2"]
 
-            if machine_lv_id and isAvailable and isOOS and timeLeft is not None:
-                DB.update_machine_by_machine_lv_id(machine_lv_id, isAvailable, isOOS, timeLeft)
-            else:
-                return failure_response("Not enough information! Need machine_lv_id, isAvailable, isOOS, and timeLeft to be supplied!", 400)
-        
-    return success_response("Machines updated!")
+                if (x["appliance_type"] == "W"):  
+                    isWasher = True
+                elif (x["appliance_type"] == "D"):
+                    isWasher = False
 
-@app.route("/api/create/machines/<string:hall_name>/", methods=["POST"])
-def create_machine(hall_name):
-    uri = "https://www.laundryview.com/api/currentRoomData?school_desc_key=52&location=" + DB.get_hall_by_name(hall_name)["lv_id"]
-    try:
-        uResponse = requests.get(uri)
-    except requests.ConnectionError:
-        return failure_response("Connection Error")
-    jResponse = uResponse.text
-    body = json.loads(jResponse)
-    list = body["objects"]
-
-    for x in list:
-        if (x["appliance_desc_key"] is not None):
-            isOOS = False
-            machine_name = x["appliance_desc"]
-            machine_lv_id = x["appliance_desc_key"]
-
-            if (x["appliance_type"] == "W"):  
-                isWasher = True
-            elif (x["appliance_type"] == "D"):
-                isWasher = False
-
-            if (x["time_left_lite"] == "Available"):  
-                isAvailable = True
-            elif (x["time_left_lite"] == "Ext. Cycle"):
-                isAvailable = False
-            elif (x["time_left_lite"] == "Out of service"):
-                isAvailable = False
-                isOOS = True
-            else:
-                isAvailable = False
-            
-            timeLeft = x["time_remaining"]
-
-            if machine_name and isWasher machine_lv_id and isAvailable and isOOS and timeLeft is not None:
-                DB.insert_machine_table(hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft)
-            else:
-                return failure_response("Not enough information! Need machine_name, machine_lv_id, isAvailable, isOOS, and timeLeft to be supplied!", 400)
-        
-    return success_response("Machines created for hall!")
-
-#------------------------Delete Tables------------------
-
-@app.route("/api/users/table/", methods=["DELETE"])
-def delete_user_table():
-    DB.delete_user_table()
-    return success_response("deleted user table")
-
-@app.route("/api/txn/table/", methods=["DELETE"])
-def delete_txn_table():
-    DB.delete_txn_table()
-    return success_response("deleted txn table")
-
-@app.route("/api/machine/table/", methods=["DELETE"])
-def delete_machine_table():
-    DB.delete_machine_table()
-    return success_response("deleted machine table")
-
-#-------------------------Manual Insert Tables----------------
-
-@app.route("/api/users/table/", methods=["POST"])
-def create_user_table():
-    DB.create_user_table()
-    return success_response("created user table")
-
-@app.route("/api/txn/table/", methods=["POST"])
-def create_txn_table():
-    DB.create_txn_table()
-    return success_response("created txn table")
-
-@app.route("/api/machine/table/", methods=["POST"])
-def create_machine_table():
-    DB.create_machine_table()
-    return success_response("created machine table")
-
-#--------------------------------------------------------------
+                if (x["time_left_lite2"] == "Available"):  
+                    isAvailable = True
+                elif (x["time_left_lite2"] == "Out of service"):
+                    isAvailable = False
+                    isOOS = True
+                elif (x["time_left_lite2"] == "Out of service"):
+                    isAvailable = False
+                    isOffline = True
+                else:
+                    isAvailable = False
+                
+                timeLeft = x["time_remaining2"]
+                DB.insert_machine_table(hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, isOffline, timeLeft)
+    return success_response("Machines created for all halls!")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

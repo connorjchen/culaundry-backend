@@ -43,7 +43,7 @@ class DatabaseDriver(object):
                     name TEXT NOT NULL,
                     lv_id TEXT NOT NULL,
                     num_avail_wash INTEGER NOT NULL,
-                    num_avail_dry INTEGER NOT NULL,
+                    num_avail_dry INTEGER NOT NULL
                 );
                 """
             )
@@ -51,24 +51,50 @@ class DatabaseDriver(object):
         except Exception as e:
             print(e)
         
+    def get_hall_by_lv_id(self, lv_id):
+        cursor = self.conn.execute("SELECT * FROM hall WHERE lv_id = ?;", (lv_id,))
+        hall = parse_cursor(cursor, ["id", "name", "lv_id", "num_avail_wash", "num_avail_dry"])
+        return hall
+
     def get_all_halls(self):
         cursor = self.conn.execute("SELECT * FROM hall;")
-        halls = parse_cursor(cursor, ["name", "lv_id", "num_avail_wash", "num_avail_dry"])
+        halls = []
+        for row in cursor:
+            halls.append(
+                {
+                    "name": row[1],
+                    "lv_id": row[2],
+                    "num_avail_wash": row[3],
+                    "num_avail_dry": row[4],
+                }
+            )
         return halls
 
     def get_hall_by_name(self, hall_name):
         cursor = self.conn.execute("SELECT * FROM hall WHERE name = ?;", (hall_name,))
-        hall = parse_cursor(cursor, ["name"])
 
-        #might not work -- txn data thing
-        cursor2 = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall_name,))
-        machineData = parse_cursor(cursor2, ["machine_name", "isWasher", "isAvailable", "isOOS", "timeLeft"])
+        for row in cursor:
+            hall= {"name": hall_name}
 
-        hall["machines"]=machineData
+            cursor2 = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall["name"],))
+
+            machineData = []
+            for arow in cursor2:
+                machineData.append(
+                    {
+                        "machine_name": arow[2],
+                        "isWasher": arow[4],
+                        "isAvailable": arow[5],
+                        "isOOS": arow[6],
+                        "isOffline": arow[7],
+                        "timeLeft": arow[8],
+                    }
+                )
+            hall["machines"]=machineData
 
         return hall
 
-    def insert_hall_table(self, name, lv_id):
+    def insert_hall_table(self, name, lv_id, num_avail_wash, num_avail_dry):
         cur = self.conn.cursor()
         cur.execute(
             """
@@ -83,8 +109,7 @@ class DatabaseDriver(object):
         self.conn.execute(
             """
             UPDATE hall
-            SET num_avail_wash = ?
-            SET num_avail_dry = ?
+            SET num_avail_wash = ?, num_avail_dry = ?
             WHERE name = ?;
         """,
             (num_avail_wash, num_avail_dry, name),
@@ -112,39 +137,49 @@ class DatabaseDriver(object):
                         isWasher BOOLEAN NOT NULL,
                         isAvailable BOOLEAN NOT NULL,
                         isOOS BOOLEAN NOT NULL, 
-                        timeLeft INTEGER NOT NULL,
+                        isOffline BOOLEAN NOT NULL,
+                        timeLeft INTEGER NOT NULL
                     );
                 """
                 )
             except Exception as e:
                 print(e)
 
-    def insert_machine_table(self, hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft):
+    def insert_machine_table(self, hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, isOffline, timeLeft):
         cur = self.conn.cursor()
         cur.execute(
             """
-            INSERT INTO machine (hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft) VALUES (?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO machine (hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, isOffline, timeLeft) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             """,
-            (hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, timeLeft)
+            (hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, isOffline, timeLeft)
         )
         self.conn.commit()
         return cur.lastrowid
 
     def get_all_machines_in_hall(self, hall_name):
         cursor = self.conn.execute("SELECT * FROM machine WHERE hall_name = ?;", (hall_name,))
-        machines = parse_cursor(cursor, ["machine_name", "isWasher", "isAvailable", "isOOS", "timeLeft"])
+        machines = []
+        for row in cursor:
+            machines.append(
+                {
+                    "machine_name": row[2],
+                    "isWasher": row[4],
+                    "isAvailable": row[5],
+                    "isOOS": row[6],
+                    "isOffline": row[7],
+                    "timeLeft": row[8],
+                }
+            )
         return machines
     
-    def update_machine_by_machine_lv_id(self, machine_lv_id, isAvailable, isOOS, timeLeft):
+    def update_machine_by_machine_lv_id(self, machine_lv_id, isAvailable, isOOS, isOffline, timeLeft):
         self.conn.execute(
             """
             UPDATE machine
-            SET isAvailable = ?
-            SET isOOS = ?
-            SET timeLeft = ?
+            SET isAvailable = ?, isOOS = ?, isOffline = ?, timeLeft = ?
             WHERE machine_lv_id = ?;
         """,
-            (isAvailable, isOOS, timeLeft, machine_lv_id),
+            (isAvailable, isOOS, isOffline, timeLeft, machine_lv_id),
         )
         self.conn.commit()
 
