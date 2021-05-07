@@ -20,7 +20,7 @@ def failure_response(error, code=404):
 def get_halls():
     return success_response(DB.get_all_halls())
 
-@app.route("/api/<int:lv_id>/")
+@app.route("/api/hall/<int:lv_id>/")
 def get_all_machines_in_hall(lv_id):
     hall = DB.get_hall_by_lv_id(lv_id)
     hall_name = hall[0]["name"]
@@ -29,8 +29,8 @@ def get_all_machines_in_hall(lv_id):
     return success_response(DB.get_hall_by_name(hall_name))
 
 
-@app.route("/api/halls/", methods=["POST"])
-def create_all_hall():
+@app.route("/api/create/halls/", methods=["POST"])
+def create_halls():
     body = json.loads(request.data)
     list = body["halls"]
 
@@ -144,7 +144,7 @@ def update_machine():
     return success_response("Machines updated for all halls!")
 
 @app.route("/api/create/machines/", methods=["POST"])
-def create_machine():
+def create_machines():
     body = json.loads(request.data)
     list1 = body["halls"]
 
