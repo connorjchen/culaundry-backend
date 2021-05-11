@@ -147,10 +147,14 @@ def update_machine():
                 machine_name = x["appliance_desc2"]
                 machine_lv_id = x["appliance_desc_key2"]
 
-                if (x["appliance_type"] == "W"):  
+                if (x["combo"] == True):
                     isWasher = True
-                elif (x["appliance_type"] == "D"):
-                    isWasher = False
+
+                else:
+                    if (x["appliance_type"] == "W"):  
+                        isWasher = True
+                    elif (x["appliance_type"] == "D"):
+                        isWasher = False
 
                 if (x["time_left_lite2"] == "Available"):  
                     isAvailable = True
@@ -219,10 +223,14 @@ def create_machines():
                 machine_name = x["appliance_desc2"]
                 machine_lv_id = x["appliance_desc_key2"]
 
-                if (x["appliance_type"] == "W"):  
+                if (x["combo"] == True):
                     isWasher = True
-                elif (x["appliance_type"] == "D"):
-                    isWasher = False
+
+                else:
+                    if (x["appliance_type"] == "W"):  
+                        isWasher = True
+                    elif (x["appliance_type"] == "D"):
+                        isWasher = False
 
                 if (x["time_left_lite2"] == "Available"):  
                     isAvailable = True
@@ -238,6 +246,30 @@ def create_machines():
                 timeLeft = x["time_remaining2"]
                 DB.insert_machine_table(hall_name, machine_name, machine_lv_id, isWasher, isAvailable, isOOS, isOffline, timeLeft)
     return success_response("Machines created for all halls!")
+
+#------------------------Delete Tables------------------
+
+@app.route("/api/hall/table/", methods=["DELETE"])
+def delete_hall_table():
+    DB.delete_hall_table()
+    return success_response("deleted hall table")
+
+@app.route("/api/machine/table/", methods=["DELETE"])
+def delete_machine_table():
+    DB.delete_machine_table()
+    return success_response("deleted machine table")
+
+#-------------------------Manual Insert Tables----------------
+
+@app.route("/api/hall/table/", methods=["POST"])
+def create_hall_table():
+    DB.create_hall_table()
+    return success_response("created hall table")
+
+@app.route("/api/machine/table/", methods=["POST"])
+def create_machine_table():
+    DB.create_machine_table()
+    return success_response("created machine table")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

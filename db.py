@@ -192,21 +192,13 @@ class DatabaseDriver(object):
         )
 
 #----------------------------------------------------------------------------
-    def delete_user_table(self):
+    def delete_hall_table(self):
         self.conn.execute(
             """
-            DROP TABLE IF EXISTS user;
+            DROP TABLE IF EXISTS hall;
             """
         )
         self.conn.commit()
-
-    def delete_txn_table(self):
-        self.conn.execute(
-            """
-            DROP TABLE IF EXISTS txn;
-            """
-        )
-        self.conn.commit()    
 
     def delete_machine_table(self):
         self.conn.execute(
