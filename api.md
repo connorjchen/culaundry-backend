@@ -138,6 +138,11 @@ This application is modeled after LaundryView, which allows users to view availa
 
 ## **Insert hall table**
  **POST** /api/hall/table/
+  ###### Request
+```yaml
+{
+}
+```
 ###### Response
  ```yaml
 {
@@ -148,6 +153,11 @@ This application is modeled after LaundryView, which allows users to view availa
 
 ## **Insert machine table**
  **POST** /api/machine/table/
+  ###### Request
+```yaml
+{
+}
+```
 ###### Response
  ```yaml
 {
