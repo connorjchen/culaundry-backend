@@ -132,7 +132,7 @@ def update_machine():
                 elif (x["time_left_lite"] == "Out of service"):
                     isAvailable = False
                     isOOS = True
-                elif (x["time_left_lite"] == "Out of service"):
+                elif (x["time_left_lite"] == "Offline"):
                     isAvailable = False
                     isOffline = True
                 else:
@@ -161,7 +161,7 @@ def update_machine():
                 elif (x["time_left_lite2"] == "Out of service"):
                     isAvailable = False
                     isOOS = True
-                elif (x["time_left_lite2"] == "Out of service"):
+                elif (x["time_left_lite2"] == "Offline"):
                     isAvailable = False
                     isOffline = True
                 else:
@@ -208,7 +208,7 @@ def create_machines():
                 elif (x["time_left_lite"] == "Out of service"):
                     isAvailable = False
                     isOOS = True
-                elif (x["time_left_lite"] == "Out of service"):
+                elif (x["time_left_lite"] == "Offline"):
                     isAvailable = False
                     isOffline = True
                 else:
@@ -237,7 +237,7 @@ def create_machines():
                 elif (x["time_left_lite2"] == "Out of service"):
                     isAvailable = False
                     isOOS = True
-                elif (x["time_left_lite2"] == "Out of service"):
+                elif (x["time_left_lite2"] == "Offline"):
                     isAvailable = False
                     isOffline = True
                 else:
